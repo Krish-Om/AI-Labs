@@ -1,0 +1,5 @@
+Lab 3 Title : Genetic Algorithm
+Roll_No,Equation,	,Interger, Length,	Fraction Length,	Initial, Population,	Mutation, Rate,	Generation,	Cross Over,	Selection
+22	3x2−10x+8=0	4	4	201	0.48	992	3	1
+
+and use roulette

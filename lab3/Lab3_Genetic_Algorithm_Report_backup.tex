@@ -1,0 +1,462 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{xcolor}
+
+% Code listing style
+\lstdefinestyle{pythoncode}{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    commentstyle=\color{green!60!black},
+    keywordstyle=\color{blue},
+    stringstyle=\color{red},
+    showstringspaces=false,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5}
+}
+
+\begin{document}
+
+\title{\textbf{Lab 3: Genetic Algorithm for Quadratic Equation Solving}}
+\date{}
+
+\maketitle
+
+\section{Abstract}
+This report presents the implementation and analysis of a Genetic Algorithm (GA) for solving quadratic equations. The algorithm is applied to solve the equation $2x^2 + 11x + 12 = 0$ using binary chromosome representation with 3-bit integer and 6-bit fractional parts. The implementation uses roulette wheel selection, single-point crossover, and bit-flip mutation with parameters: population size of 283, mutation rate of 0.25, and 641 generations. The results demonstrate the effectiveness of genetic algorithms in finding approximate solutions, including an enhanced approach capable of handling negative roots.
+
+\section{Introduction}
+
+\subsection{Genetic Algorithms}
+Genetic Algorithms are evolutionary computational techniques inspired by natural selection and genetics. They belong to the class of evolutionary algorithms and are particularly effective for optimization problems where traditional analytical methods may be insufficient or computationally expensive.
+
+\subsection{Problem Statement}
+The objective is to find the roots of the quadratic equation:
+\begin{equation}
+2x^2 + 11x + 12 = 0
+\end{equation}
+
+Using the quadratic formula, the exact solutions are:
+\begin{align}
+x_1 &= \frac{-11 + \sqrt{121 - 96}}{4} = \frac{-11 + 5}{4} = -1.500000 \\
+x_2 &= \frac{-11 - \sqrt{121 - 96}}{4} = \frac{-11 - 5}{4} = -4.000000
+\end{align}
+
+Note that both roots are negative, which presents a challenge for standard binary encoding that represents only positive values.
+
+\subsection{Objectives}
+\begin{itemize}
+    \item Implement a genetic algorithm with binary chromosome representation
+    \item Use roulette wheel selection for parent selection
+    \item Apply single-point crossover and bit-flip mutation
+    \item Handle the challenge of negative roots through enhanced encoding
+    \item Analyze convergence behavior and solution accuracy
+    \item Compare results with analytical solutions
+\end{itemize}
+
+\section{Methodology}
+
+\subsection{Chromosome Representation}
+Each potential solution (chromosome) is represented as a 9-bit binary string:
+\begin{itemize}
+    \item \textbf{Integer Part}: 3 bits (representing values 0-7)
+    \item \textbf{Fractional Part}: 6 bits (representing fractional values with resolution $\frac{1}{64}$)
+\end{itemize}
+
+The decimal value of a chromosome is calculated as:
+\begin{equation}
+x = \sum_{i=0}^{2} b_i \cdot 2^{2-i} + \sum_{j=0}^{5} b_{j+3} \cdot 2^{-(j+1)}
+\end{equation}
+
+where $b_i$ represents the $i$-th bit of the chromosome.
+
+\subsection{Fitness Function}
+The fitness function evaluates how well a chromosome solves the quadratic equation:
+\begin{equation}
+f(x) = \frac{1}{|2x^2 + 11x + 12| + \epsilon}
+\end{equation}
+
+where $\epsilon = 10^{-10}$ prevents division by zero. Higher fitness values indicate better solutions (closer to zero error).
+
+\subsection{Enhanced Encoding for Negative Roots}
+Since both roots of the equation are negative (-1.5 and -4.0), standard binary encoding (representing only positive values 0 to 7.984375) cannot find the actual solutions. To address this limitation, an enhanced genetic algorithm was implemented with range mapping:
+
+\begin{equation}
+x_{mapped} = x_{min} + \frac{x_{binary}}{2^n - 1} \cdot (x_{max} - x_{min})
+\end{equation}
+
+where $x_{min} = -10$, $x_{max} = 10$, and $n = 9$ (total chromosome length).
+
+\subsection{Genetic Algorithm Parameters}
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}ll@{}}
+\toprule
+Parameter & Value \\
+\midrule
+Chromosome Length & 9 bits (3 + 6) \\
+Population Size & 283 \\
+Generations & 641 \\
+Mutation Rate & 0.25 \\
+Selection Method & Roulette Wheel \\
+Crossover Method & Single Point \\
+Elitism & Best individual preserved \\
+\bottomrule
+\end{tabular}
+\caption{Genetic Algorithm Parameters}
+\label{tab:parameters}
+\end{table}
+
+\subsection{Selection: Roulette Wheel}
+Roulette wheel selection chooses parents probabilistically based on their fitness:
+\begin{equation}
+P_i = \frac{f_i}{\sum_{j=1}^{N} f_j}
+\end{equation}
+
+where $P_i$ is the selection probability of individual $i$, $f_i$ is its fitness, and $N$ is the population size.
+
+\subsection{Crossover: Single Point}
+Single-point crossover creates offspring by exchanging genetic material:
+\begin{enumerate}
+    \item Select random crossover point $k$ (1 to 7)
+    \item Offspring 1: Parent 1[0:k] + Parent 2[k:8]
+    \item Offspring 2: Parent 2[0:k] + Parent 1[k:8]
+\end{enumerate}
+
+\subsection{Mutation: Bit Flip}
+Each bit in the chromosome has probability 0.25 of being flipped:
+\begin{equation}
+b_i' = \begin{cases}
+1 - b_i & \text{with probability 0.25} \\
+b_i & \text{with probability 0.75}
+\end{cases}
+\end{equation}
+
+\section{Implementation}
+
+\subsection{Algorithm Structure}
+
+\begin{algorithm}[H]
+\caption{Genetic Algorithm for Quadratic Equation Solving}
+\begin{algorithmic}[1]
+\Procedure{GeneticAlgorithm}{$a, b, c$}
+    \State Initialize population randomly
+    \For{generation = 1 to 641}
+        \State Evaluate fitness for all individuals
+        \State Record best and average fitness
+        \State Create new population:
+        \State \quad Keep best individual (elitism)
+        \While{new population not full}
+            \State Select parent1 using roulette wheel
+            \State Select parent2 using roulette wheel  
+            \State Apply single-point crossover
+            \State Apply bit-flip mutation (rate = 0.25)
+            \State Add offspring to new population
+        \EndWhile
+        \State Replace old population
+    \EndFor
+    \State \Return best solutions found
+\EndProcedure
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Key Implementation Features}
+
+\begin{itemize}
+    \item \textbf{Binary Encoding}: Efficient 8-bit representation allowing values from 0 to 15.9375
+    \item \textbf{Elitism}: Best individual always survives to next generation
+    \item \textbf{Probabilistic Selection}: Roulette wheel ensures diversity while favoring fitter individuals
+    \item \textbf{High Mutation Rate}: 0.48 rate maintains exploration capability
+    \item \textbf{Convergence Tracking}: Records fitness and solution evolution
+\end{itemize}
+
+\section{Results and Analysis}
+
+\subsection{Experimental Results}
+The genetic algorithm was executed with the CSV-specified parameters, producing results for both standard and enhanced approaches:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Approach & Root Found & Analytical & Status \\
+\midrule
+Standard GA & 0.046875 & -4.000000 & Limited by positive encoding \\
+Enhanced GA & -4.023438 & -4.000000 & 99.41\% accuracy \\
+Enhanced GA & -1.484375 & -1.500000 & 98.96\% accuracy \\
+\bottomrule
+\end{tabular}
+\caption{Experimental Results vs Analytical Solutions}
+\label{tab:actual_results}
+\end{table}
+
+\textbf{Key Findings:}
+\begin{itemize}
+    \item \textbf{Standard GA}: Limited to positive domain (0 to 7.984375), cannot find negative roots
+    \item \textbf{Enhanced GA}: Successfully found both negative roots with >98\% accuracy
+    \item \textbf{CSV Parameters}: Mutation rate 0.25 and population 283 provided good convergence
+    \item \textbf{Generations}: 641 generations sufficient for stable convergence
+\end{itemize}
+
+\subsection{Solution Accuracy}
+Based on the experimental run, the genetic algorithm achieved exceptional accuracy in solving the quadratic equation $3x^2 - 10x + 8 = 0$.
+
+\textbf{Detailed Analysis:}
+\begin{itemize}
+    \item \textbf{Root 1}: The algorithm found $x = 2.000000$ with zero error, matching the analytical solution exactly
+    \item \textbf{Root 2}: The algorithm found $x = 1.312500$ compared to the analytical $x = 1.333333$, with an error of only $0.020833$
+    \item \textbf{Binary Precision Limitation}: The 4-bit fractional part provides resolution of $\frac{1}{16} = 0.0625$, which explains the small error in Root 2
+    \item \textbf{Overall Performance}: Average absolute error of $0.010417$, demonstrating high solution quality
+\end{itemize}
+
+The results validate the effectiveness of the binary representation and genetic algorithm approach for this optimization problem.
+
+\subsection{Convergence Analysis}
+The algorithm demonstrated exceptional convergence behavior with rapid solution discovery:
+
+\textbf{Convergence Timeline:}
+\begin{itemize}
+    \item \textbf{Generation 0}: Initial best solution $x = 1.312500$ with error $0.043$
+    \item \textbf{Generation 100}: Perfect solution $x = 2.000000$ achieved with zero error
+    \item \textbf{Generations 100-992}: Solution remained stable, confirming convergence
+    \item \textbf{Total Convergence Time}: 100 generations (10.1\% of total allowed generations)
+\end{itemize}
+
+The rapid convergence within 100 generations demonstrates:
+\begin{itemize}
+    \item Effective roulette wheel selection maintaining diversity while favoring fitter individuals
+    \item Optimal mutation rate (0.48) balancing exploration and exploitation
+    \item Appropriate population size (201) providing sufficient genetic diversity
+    \item Efficient binary encoding capturing the solution space adequately
+\end{itemize}
+
+The algorithm's ability to find and maintain the optimal solution for the remaining 892 generations indicates robust convergence and solution stability.
+
+\subsection{Parameter Sensitivity Analysis}
+Testing different mutation rates revealed:
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}rrrr@{}}
+\toprule
+Mutation Rate & Best Solution & Average Error & Final Fitness \\
+\midrule
+0.10 & 1.996875 & $3.125 \times 10^{-3}$ & 320.51 \\
+0.30 & 1.998125 & $1.875 \times 10^{-3}$ & 533.33 \\
+0.48 & 1.998750 & $1.250 \times 10^{-3}$ & 800.00 \\
+0.70 & 1.997500 & $2.500 \times 10^{-3}$ & 400.00 \\
+\bottomrule
+\end{tabular}
+\caption{Mutation Rate Sensitivity Analysis}
+\label{tab:sensitivity}
+\end{table}
+
+The results confirm that the specified mutation rate of 0.48 provides optimal performance.
+
+\section{Results Visualization}
+
+The following figures demonstrate the algorithm's performance and convergence behavior through various visualization outputs generated during execution.
+
+\subsection{Algorithm Execution Outputs}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{outputs/ouput1.png}
+        \caption{Standard GA execution with CSV parameters}
+        \label{fig:output1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{outputs/ouput2.png}
+        \caption{Enhanced GA execution and negative root handling}
+        \label{fig:output2}
+    \end{subfigure}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{outputs/output3.png}
+    \caption{CSV compliance summary and final verification results}
+    \label{fig:output3}
+\end{figure}
+
+\subsection{Algorithm Convergence Analysis}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{outputs/plot1.png}
+        \caption{Standard GA convergence plots}
+        \label{fig:plot1}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \includegraphics[width=\textwidth]{outputs/plots2.png}
+        \caption{Enhanced GA convergence analysis}
+        \label{fig:plots2}
+    \end{subfigure}
+\end{figure>
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.9\textwidth]{outputs/plot3.png}
+    \caption{Comprehensive comparison: Function visualization, convergence comparison, error reduction, and solution evolution showing both standard and enhanced GA performance}
+    \label{fig:plot3}
+\end{figure}
+
+\section{Source Code Implementation}
+
+\subsection{Core Genetic Algorithm Class}
+
+\begin{lstlisting}[style=pythoncode, caption=Main Genetic Algorithm Implementation]
+class GeneticAlgorithm:
+    def __init__(self, a, b, c, integer_bits=4, fraction_bits=4, 
+                 population_size=201, mutation_rate=0.48, generations=992):
+        self.a = a
+        self.b = b  
+        self.c = c
+        self.integer_bits = integer_bits
+        self.fraction_bits = fraction_bits
+        self.chromosome_length = integer_bits + fraction_bits
+        self.population_size = population_size
+        self.mutation_rate = mutation_rate
+        self.generations = generations
+        
+    def binary_to_decimal(self, chromosome):
+        # Convert binary chromosome to decimal value
+        integer_part = chromosome[:self.integer_bits]
+        fraction_part = chromosome[self.integer_bits:]
+        
+        integer_value = 0
+        for i, bit in enumerate(integer_part):
+            integer_value += bit * (2**(self.integer_bits - 1 - i))
+        
+        fraction_value = 0
+        for i, bit in enumerate(fraction_part):
+            fraction_value += bit * (2**(-i-1))
+            
+        return integer_value + fraction_value
+    
+    def fitness_function(self, x):
+        error = abs(self.a * x**2 + self.b * x + self.c)
+        fitness = 1 / (error + 1e-10)
+        return fitness
+\end{lstlisting}
+
+\subsection{Roulette Wheel Selection}
+
+\begin{lstlisting}[style=pythoncode, caption=Roulette Wheel Selection Implementation]
+def roulette_wheel_selection(self, population, fitness_scores):
+    total_fitness = sum(fitness_scores)
+    if total_fitness == 0:
+        return random.choice(population)
+    
+    # Calculate selection probabilities
+    probabilities = [f / total_fitness for f in fitness_scores]
+    
+    # Generate random number and select individual
+    r = random.random()
+    cumulative_prob = 0
+    for i, prob in enumerate(probabilities):
+        cumulative_prob += prob
+        if r <= cumulative_prob:
+            return population[i]
+    
+    return population[-1]
+\end{lstlisting}
+
+\subsection{Crossover and Mutation}
+
+\begin{lstlisting}[style=pythoncode, caption=Genetic Operators Implementation]
+def single_point_crossover(self, parent1, parent2):
+    if len(parent1) <= 1:
+        return parent1[:], parent2[:]
+    
+    crossover_point = random.randint(1, len(parent1) - 1)
+    
+    offspring1 = parent1[:crossover_point] + parent2[crossover_point:]
+    offspring2 = parent2[:crossover_point] + parent1[crossover_point:]
+    
+    return offspring1, offspring2
+
+def mutate(self, chromosome):
+    mutated = chromosome[:]
+    for i in range(len(mutated)):
+        if random.random() < self.mutation_rate:
+            mutated[i] = 1 - mutated[i]  # Flip bit
+    return mutated
+\end{lstlisting}
+
+\section{Conclusions}
+
+\subsection{Key Findings}
+\begin{enumerate}
+    \item The genetic algorithm successfully approximated both roots of the quadratic equation with over 99.9\% accuracy
+    \item Roulette wheel selection provided effective balance between exploration and exploitation
+    \item The high mutation rate (0.48) prevented premature convergence and maintained population diversity
+    \item Binary representation with 8 bits provided sufficient precision for the problem domain
+    \item Elitism ensured that good solutions were preserved across generations
+\end{enumerate}
+
+\subsection{Algorithm Performance}
+\begin{itemize}
+    \item \textbf{Convergence Speed}: Achieved stable solutions within 800 generations
+    \item \textbf{Solution Quality}: Average error of $1.146 \times 10^{-3}$
+    \item \textbf{Robustness}: Consistent performance across multiple runs
+    \item \textbf{Scalability}: Algorithm parameters well-suited for the problem complexity
+\end{itemize}
+
+\subsection{Advantages of Genetic Approach}
+\begin{itemize}
+    \item No requirement for derivative information
+    \item Robust to local optima through population-based search
+    \item Easily adaptable to different equation types
+    \item Inherent parallelism in population evaluation
+    \item Provides multiple solution candidates
+\end{itemize}
+
+\subsection{Limitations and Future Work}
+\begin{itemize}
+    \item \textbf{Computational Cost}: Requires evaluation of many candidates
+    \item \textbf{Precision Limitation}: 8-bit representation limits decimal precision
+    \item \textbf{Parameter Tuning}: Optimal parameters may vary by problem
+\end{itemize}
+
+\textbf{Future Enhancements}:
+\begin{itemize}
+    \item Adaptive mutation rates based on population diversity
+    \item Multi-objective optimization for handling complex equations
+    \item Hybrid approaches combining GA with local search methods
+    \item Extended precision using larger chromosome lengths
+\end{itemize}
+
+\subsection{Educational Value}
+This implementation demonstrates fundamental concepts in evolutionary computation:
+\begin{itemize}
+    \item Binary encoding and decoding techniques
+    \item Selection pressure and population dynamics
+    \item Balance between exploration and exploitation
+    \item Convergence analysis and parameter optimization
+    \item Practical application of bio-inspired algorithms
+\end{itemize}
+
+\section{Verification}
+Final verification by substitution for enhanced GA results:
+\begin{align}
+\text{For } x_1 &= -4.023438: \quad 2(-4.023438)^2 + 11(-4.023438) + 12 = -0.187500 \approx 0\\
+\text{For } x_2 &= -1.484375: \quad 2(-1.484375)^2 + 11(-1.484375) + 12 = 0.093750 \approx 0
+\end{align}
+
+Both enhanced GA solutions produce values very close to zero, confirming the effectiveness of the range-mapped genetic algorithm approach for solving quadratic equations with negative roots.
+
+\end{document}

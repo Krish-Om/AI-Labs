@@ -1,0 +1,2 @@
+Application Area,	Input Variable,	Input Fuzzy Sets & Shapes,	Output Variable,	Output Fuzzy Sets & Shapes
+Robotics,	Distance to Obstacles,	Very Close, Close, Far (Trapezoidal, Triangular, Trapezoidal)	Robot's Velocity	Stop, Slow, Normal, Fast (Trapezoidal, Triangular, Triangular, Trapezoidal)
