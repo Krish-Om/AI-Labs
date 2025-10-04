@@ -47,3 +47,9 @@ Perfect for understanding:
 - Practical AI problem-solving techniques
 
 See `lab/README.md` for detailed information and `Lab2_AI_Search_Algorithms.pdf` for the complete analysis.
+
+## Repository
+
+The complete implementation and all lab reports are available in the GitHub repository:
+
+**Repository:** https://github.com/Krish-Om/AI-Labs
